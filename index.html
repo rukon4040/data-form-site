@@ -1,21 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Collect User Info</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flight Search</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    label, input, button { margin: 10px 0; display: block; }
+    #results { margin-top: 20px; }
+  </style>
 </head>
 <body>
-  <h2>User Information Form</h2>
+  <h1>Search Flights</h1>
+  <label for="from">From (IATA Code):</label>
+  <input type="text" id="from" placeholder="e.g., CCU" />
 
-  <form action="https://formsubmit.co/mailtorukon@gmail.com" method="POST">
-    <label>Name:</label><br>
-    <input type="text" name="name" required><br><br>
+  <label for="to">To (IATA Code):</label>
+  <input type="text" id="to" placeholder="e.g., BOM" />
 
-    <label>Age:</label><br>
-    <input type="number" name="age" required><br><br>
+  <label for="date">Date (YYYY-MM-DD):</label>
+  <input type="date" id="date" />
 
-    <button type="submit">Submit</button>
-  </form>
+  <button onclick="searchFlights()">Search Flights</button>
 
-  <p>This form will send data to your email!</p>
+  <div id="results"></div>
+
+  <script>
+    async function searchFlights() {
+      const from = document.getElementById("from").value;
+      const to = document.getElementById("to").value;
+      const date = document.getElementById("date").value;
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "Searching...";
+
+      const url = `https://aviationstack1.p.rapidapi.com/v1/flights?dep_iata=${from}&arr_iata=${to}&flight_date=${date}`;
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "x-rapidapi-host": "aviationstack1.p.rapidapi.com",
+            "x-rapidapi-key": "5a0ea40078mshed6f05bef318968p115cb9jsn316c2b3d5a04"
+          }
+        });
+
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+          resultsDiv.innerHTML = data.data.map(flight => `
+            <div>
+              <strong>Flight:</strong> ${flight.flight.iata} <br />
+              <strong>Airline:</strong> ${flight.airline.name} <br />
+              <strong>From:</strong> ${flight.departure.iata} at ${flight.departure.scheduled} <br />
+              <strong>To:</strong> ${flight.arrival.iata} at ${flight.arrival.scheduled}
+              <hr />
+            </div>
+          `).join("");
+        } else {
+          resultsDiv.innerHTML = "No flights found matching your criteria.";
+        }
+      } catch (error) {
+        resultsDiv.innerHTML = "Error fetching flight data.";
+        console.error(error);
+      }
+    }
+  </script>
 </body>
 </html>
