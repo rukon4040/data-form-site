@@ -1,68 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flight Search</title>
+  <meta charset="utf-8">
+  <title>OpenSky JSON Viewer (Debuggable)</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    label, input, button { margin: 10px 0; display: block; }
-    #results { margin-top: 20px; }
+    body { font-family: sans-serif; padding: 1rem; }
+    table { width:100%; border-collapse: collapse; margin-top:1rem; display:none; }
+    th, td { border:1px solid #ccc; padding:8px; text-align:left; }
+    #error { color: red; margin-top: 1rem; }
   </style>
 </head>
 <body>
-  <h1>Search Flights</h1>
-  <label for="from">From (IATA Code):</label>
-  <input type="text" id="from" placeholder="e.g., CCU" />
-
-  <label for="to">To (IATA Code):</label>
-  <input type="text" id="to" placeholder="e.g., BOM" />
-
-  <label for="date">Date (YYYY-MM-DD):</label>
-  <input type="date" id="date" />
-
-  <button onclick="searchFlights()">Search Flights</button>
-
-  <div id="results"></div>
+  <h2>OpenSky JSON Viewer</h2>
+  <input type="file" id="fileInput" accept=".json" />
+  <div id="error"></div>
+  <table id="flightsTable">
+    <thead>
+      <tr>
+        <th>ICAO24</th><th>Callsign</th><th>Country</th>
+        <th>Latitude</th><th>Longitude</th><th>Altitude (m)</th><th>On Ground?</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
-    async function searchFlights() {
-      const from = document.getElementById("from").value;
-      const to = document.getElementById("to").value;
-      const date = document.getElementById("date").value;
-      const resultsDiv = document.getElementById("results");
-      resultsDiv.innerHTML = "Searching...";
+    const fileInput = document.getElementById('fileInput');
+    const errorDiv = document.getElementById('error');
+    const table = document.getElementById('flightsTable');
+    const tbody = table.querySelector('tbody');
 
-      const url = `https://aviationstack1.p.rapidapi.com/v1/flights?dep_iata=${from}&arr_iata=${to}&flight_date=${date}`;
+    fileInput.addEventListener('change', e => {
+      errorDiv.textContent = '';
+      tbody.innerHTML = '';
+      table.style.display = 'none';
 
-      try {
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "x-rapidapi-host": "aviationstack1.p.rapidapi.com",
-            "x-rapidapi-key": "5a0ea40078mshed6f05bef318968p115cb9jsn316c2b3d5a04"
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = evt => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          console.log('Parsed JSON:', data); // <— check the console
+
+          if (!Array.isArray(data.states) || data.states.length === 0) {
+            errorDiv.textContent = 'No `states` array found or it is empty.';
+            return;
           }
-        });
 
-        const data = await response.json();
-        if (data.data && data.data.length > 0) {
-          resultsDiv.innerHTML = data.data.map(flight => `
-            <div>
-              <strong>Flight:</strong> ${flight.flight.iata} <br />
-              <strong>Airline:</strong> ${flight.airline.name} <br />
-              <strong>From:</strong> ${flight.departure.iata} at ${flight.departure.scheduled} <br />
-              <strong>To:</strong> ${flight.arrival.iata} at ${flight.arrival.scheduled}
-              <hr />
-            </div>
-          `).join("");
-        } else {
-          resultsDiv.innerHTML = "No flights found matching your criteria.";
+          // Populate rows
+          data.states.forEach(s => {
+            const [icao24, callsign, country, , , longitude, latitude, altitude, on_ground] = s;
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${icao24}</td>
+              <td>${callsign.trim() || 'N/A'}</td>
+              <td>${country}</td>
+              <td>${latitude != null ? latitude.toFixed(4) : '—'}</td>
+              <td>${longitude != null ? longitude.toFixed(4) : '—'}</td>
+              <td>${altitude != null ? altitude.toFixed(1) : '—'}</td>
+              <td>${on_ground}</td>
+            `;
+            tbody.appendChild(row);
+          });
+
+          table.style.display = '';
+        } catch (err) {
+          console.error(err);
+          errorDiv.textContent = 'Failed to parse JSON: ' + err.message;
         }
-      } catch (error) {
-        resultsDiv.innerHTML = "Error fetching flight data.";
-        console.error(error);
-      }
-    }
+      };
+      reader.readAsText(file);
+    });
   </script>
 </body>
 </html>
